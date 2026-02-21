@@ -12,16 +12,20 @@ services:
       - CLUSTER_NAME=big-data
     env_file:
       - ./hadoop.env
+
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
     container_name: datanode
     restart: always
     volumes:
       - hadoop_datanode:/hadoop/dfs/data
+    ports:
+      - 9866:9866
     environment:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./hadoop.env
+
   resourcemanager:
     image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
     container_name: resourcemanager
@@ -35,14 +39,21 @@ services:
       SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
     env_file:
       - ./hadoop.env
+
   nodemanager1:
-    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+    build:
+      context: ./nodemanager
+      dockerfile: Dockerfile.custom
+    image: hadoop-nodemanager-python:3.2.1
     container_name: nodemanager
     restart: always
+    ports:
+      - 8042:8042
     environment:
       SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
     env_file:
       - ./hadoop.env
+
   historyserver:
     image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
     container_name: historyserver
@@ -56,19 +67,24 @@ services:
       - hadoop_historyserver:/hadoop/yarn/timeline
     env_file:
       - ./hadoop.env
-  # flume:
-  #   image: flume-hdfs:logs
-  #   container_name: flume
-  #   restart: always
-  #   environment:
-  #     - HDFS_PATH=hdfs://namenode:9000/user/hadoopuser/project/logs
-  #     - LOG_INTERVAL=0.5
-  #     - AGENT_NAME=agent
-  #   env_file:
-  #     - ./hadoop.env
-  #   depends_on:
-  #     - namenode
+
+  mysql:
+    image: mysql:5.7
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sqoopdb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: "1234"
+    ports:
+      - 3306:3306
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+
   sqoop:
+    build: ./sqoop
     image: sqoop:mysql
     container_name: sqoop
     restart: always
@@ -78,31 +94,41 @@ services:
       - ./hadoop.env
     depends_on:
       - namenode
-  mysql:
-    image: mysql:5.7
-    container_name: mysql
+      - mysql
+
+  flume:
+    build: ./flume
+    image: flume-hdfs:logs
+    container_name: flume
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: sqoopdb
-      MYSQL_USER: user
-      MYSQL_PASSWORD: 1234
+      - HDFS_PATH=hdfs://namenode:9000/user/hadoopuser/project/logs
+      - LOG_INTERVAL=0.5
+      - AGENT_NAME=agent
+    env_file:
+      - ./hadoop.env
     depends_on:
-      - sqoop
-  # mapreduce:
-  #   image: mapreduce:logs
-  #   container_name: mapreduce
-  #   restart: always
-  #   environment:
-  #     HDFS_INPUT: "/user/hadoopuser/project/logs"
-  #     JOB_TYPE: level
-  #     SERVICE_PRECONDITION: "namenode:9000 namenode:9870 resourcemanager:8088"
-  #   env_file:
-  #     - ./hadoop.env
-  #   depends_on:
-  #     - namenode
+      - namenode
+      - datanode
+
+  mapreduce:
+    build: ./mapreduce
+    image: mapreduce:logs
+    container_name: mapreduce
+    restart: always
+    environment:
+      HDFS_INPUT: "/user/hadoopuser/project/logs"
+      JOB_TYPE: non
+      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 resourcemanager:8088"
+    env_file:
+      - ./hadoop.env
+    depends_on:
+      - namenode
+      - resourcemanager
+      - flume
 
 volumes:
   hadoop_namenode:
   hadoop_datanode:
   hadoop_historyserver:
+  mysql_data:

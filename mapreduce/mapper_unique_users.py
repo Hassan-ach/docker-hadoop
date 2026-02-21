@@ -15,5 +15,4 @@ for line in sys.stdin:
 
     if user_part.startswith("user="):
         user_id = user_part.split("=")[1]
-        print(f"{service}\t{user_id}")
-
+        print(service + "\t" + user_id)

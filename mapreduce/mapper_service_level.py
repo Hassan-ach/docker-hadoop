@@ -13,5 +13,4 @@ for line in sys.stdin:
     level = parts[1].strip("[]")
     service = parts[2]
 
-    print(f"{service} {level}\t1")
-
+    print(service + " " + level + "\t1")

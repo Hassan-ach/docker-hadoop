@@ -14,5 +14,4 @@ for line in sys.stdin:
     service = parts[2]
 
     if level == "ERROR":
-        print(f"{service}\t1")
-
+        print(service + "\t1")

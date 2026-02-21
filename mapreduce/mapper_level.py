@@ -11,5 +11,4 @@ for line in sys.stdin:
         continue
 
     level = parts[1].strip("[]")
-    print(f"{level}\t1")
-
+    print(level + "\t1")
